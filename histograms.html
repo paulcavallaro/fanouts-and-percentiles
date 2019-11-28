@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.bar rect {
+  shape-rendering: crispEdges;
+}
+
+.bar text {
+  fill: #999999;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+</style>
+<body>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var color = "steelblue";
+
+// Generate N data points using log normal distribution with mean 3, deviation 0.3
+var generateValues = function(n) {
+  return d3.range(n).map(d3.random.logNormal(3, 0.3))
+}
+
+// A formatter for counts.
+var formatCount = d3.format(",.0f");
+const margin = {top: 20, right: 30, bottom: 30, left: 30};
+const width = 960 - margin.left - margin.right;
+const height = 500 - margin.top - margin.bottom;
+
+var values = generateValues(10);
+
+const calculateBinPercentile = function(p) {
+  return function(data) {
+    const sum = data.reduce(function(acc, val) {
+      return acc + val.y;
+    }, 0);
+    const goal = p * sum;
+    var cur = 0;
+    for (i = 0; i < data.length; i++) {
+      cur += data[i].y;
+      if (cur >= goal) return i;
+    }
+    return data.length;
+  }
+}
+
+var percentile = .9
+
+const InitialDrawing = function(vals) {
+  var color = "steelblue";
+
+  const xMax = 60; //d3.max(vals);
+  var x = d3.scale.linear()
+      .domain([0, xMax])
+      .range([0, width]);
+
+  // Generate a histogram using uniformly-spaced bins.
+  var data = d3.layout.histogram()
+      .bins(x.ticks(xMax))(vals);
+
+  var yMax = d3.max(data, function(d){ return d.y });
+  var yMin = d3.min(data, function(d){ return d.y });
+  var colorScale = d3.scale.linear()
+      .domain([yMin, yMax])
+      .range([d3.rgb(color).brighter(), d3.rgb(color).darker()]);
+
+  var y = d3.scale.linear()
+      .domain([0, yMax])
+      .range([height, 0]);
+
+  var xAxis = d3.svg.axis()
+      .scale(x)
+      .orient("bottom");
+
+  var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var bar = svg.selectAll(".bar")
+      .data(data)
+    .enter().append("g")
+      .attr("class", "bar")
+      .attr("transform", function(d) {
+        return "translate(" + x(d.x) + "," + y(d.y) + ")";
+      });
+
+  const getBinIndex = calculateBinPercentile(percentile);
+  const binIdx = getBinIndex(data);
+  console.log(binIdx);
+  console.log(data);
+
+  bar.append("rect")
+    .attr("x", 1)
+    .attr("width", (x(data[0].dx) - x(0)) - 1)
+    .attr("height", function(d) { return height - y(d.y); })
+    .attr("fill", function(d) {
+      if (d.x == binIdx) {
+        return "red";
+      }
+      return colorScale(d.y)
+    });
+
+  bar.append("text")
+    .attr("dy", ".75em")
+    .attr("y", -12)
+    .attr("x", (x(data[0].dx) - x(0)) / 2)
+    .attr("text-anchor", "middle")
+    .text(function(d) {
+      if (d.x == binIdx) {
+        return "p" + percentile * 100
+      }});
+
+  svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis);
+
+  return [svg, y];
+}
+
+var [svg, y] = InitialDrawing(values);
+
+const updateMillis = 300
+const transitionMillis = updateMillis / 2;
+
+function update(svg, y, vals) {
+  const xMax = 60; //d3.max(vals);
+  var x = d3.scale.linear()
+      .domain([0, xMax])
+      .range([0, width]);
+
+  // Generate a histogram using uniformly-spaced bins.
+  var data = d3.layout.histogram()
+      .bins(x.ticks(xMax))(vals);
+
+  // Reset y domain using new data
+  var yMax = d3.max(data, function(d){return d.length});
+  var yMin = d3.min(data, function(d){return d.length});
+  y.domain([0, yMax]);
+  var colorScale = d3.scale.linear()
+              .domain([yMin, yMax])
+              .range([d3.rgb(color).brighter(), d3.rgb(color).darker()]);
+
+  var bar = svg.selectAll(".bar").data(data);
+
+  // Remove object with data
+  bar.exit().remove();
+
+  bar.transition()
+    .duration(transitionMillis)
+    .attr("transform", function(d) {
+      return "translate(" + x(d.x) + "," + y(d.y) + ")";
+    });
+
+  const getBinIndex = calculateBinPercentile(percentile);
+  const binIdx = getBinIndex(data);
+
+  bar.select("rect")
+    .transition()
+    .duration(transitionMillis)
+    .attr("height", function(d) { return height - y(d.y); })
+    .attr("fill", function(d) {
+      if (d.x == binIdx) {
+        return "red";
+      }
+      return colorScale(d.y)
+    });
+
+  bar.select("text")
+    .transition()
+    .duration(transitionMillis)
+    .text(function(d) {
+      if (d.x == binIdx) {
+        return "p" + percentile * 100
+      }
+    });
+
+}
+
+// Calling refresh repeatedly.
+setInterval(function() {
+  values = values.concat(generateValues(50));
+  update(svg, y, values);
+}, updateMillis);
+
+</script>
