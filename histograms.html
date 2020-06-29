@@ -21,7 +21,35 @@ body {
 }
 
 </style>
+
 <body>
+  <div>
+    <span>
+      Fanout Size:
+      <input id="fanout-size" class="fanout-size" type="text" value="20" />
+    </span>
+  </div>
+  <div>
+    <span>
+      Parent Latency Percentile:
+      <input id="parent-percentile" class="parent-percentile" type="text" value="95" />
+    </span>
+  </div>
+  <div>
+    <span>
+      Num Requests To Simulate:
+      <input id="num-requests" class="num-requests" type="text" value="5000" />
+    </span>
+  </div>
+  <div>
+    <span>
+      <input id="refresh" class="refresh" type="button" value="Refresh"/>
+    </span>
+  </div>
+  <div class="d3">
+  </div>
+</body>
+
 <script src="https://d3js.org/d3.v3.min.js"></script>
 <script>
 
@@ -30,13 +58,11 @@ var color = "steelblue";
 // Generate N data points using log normal distribution with mean log of 3,
 // deviation 0.4
 var generateChildValues = function(n) {
-  var logNormal = d3.random.logNormal(3.4, 0.3);
+  var logNormal = d3.random.logNormal(3.4, 0.55);
   var normal = d3.random.normal(85, 2);
   var childDistributionFunc = function(x) {
-    if (Math.random() < 0.99) {
-      return logNormal(x);
-    }
-    return normal(x);
+    return logNormal(x);
+    // return normal(x);
   }
   return d3.range(n).map(childDistributionFunc)
 }
@@ -47,14 +73,10 @@ const totalHeight = 500;
 const width = totalWidth - margin.left - margin.right;
 const height = totalHeight - margin.top - margin.bottom;
 
-const fanoutSize = 10;
-const maxParentRequests = 20000
-const parentPercentile = .95
-const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
+const kNumBins = 200;
+// const fanoutSize = 15;
+const kNumParentRequests = 4000;
 const percentileFormatter = d3.format(".2f");
-
-var childValues = generateChildValues(0);
-var parentValues = Array();
 
 const calculateBinPercentile = function(p) {
   return function(data) {
@@ -71,21 +93,35 @@ const calculateBinPercentile = function(p) {
   }
 }
 
+const calculatePercentileX = function(p) {
+  return function(data) {
+    const sum = data.reduce(function(acc, val) {
+      return acc + val.y;
+    }, 0);
+    const goal = p * sum;
+    var cur = 0;
+    for (i = 0; i < data.length; i++) {
+      cur += data[i].y;
+      if (cur >= goal) return data[i].x;
+    }
+    return data[data.length-1].x;
+  }
+}
 
-const InitialDrawing = function(vals, percentile) {
+
+const InitialDrawing = function(vals, percentile, xMax) {
   var color = "steelblue";
 
-  const xMax = 120; // d3.max(vals);
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
 
   // Generate a histogram using uniformly-spaced bins.
   var data = d3.layout.histogram()
-      .bins(x.ticks(xMax))(vals);
+      .bins(kNumBins)(vals);
 
-  const getBinIndex = calculateBinPercentile(percentile);
-  const binIdx = getBinIndex(data);
+  // const getBinIndex = calculateBinPercentile(percentile);
+  const binIdx = calculatePercentileX(percentile)(data);
 
   var yMax = d3.max(data, function(d){ return d.y });
   var yMin = d3.min(data, function(d){ return d.y });
@@ -101,7 +137,7 @@ const InitialDrawing = function(vals, percentile) {
       .scale(x)
       .orient("bottom");
 
-  var svg = d3.select("body").append("svg")
+  var svg = d3.select("body div.d3").append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
     .append("g")
@@ -115,11 +151,14 @@ const InitialDrawing = function(vals, percentile) {
         return "translate(" + x(d.x) + "," + y(d.y) + ")";
       });
 
+  // console.log("binIdx = " + binIdx);
+
   bar.append("rect")
     .attr("x", 1)
     .attr("width", (x(data[0].dx) - x(0)) - 1)
     .attr("height", function(d) { return height - y(d.y); })
     .attr("fill", function(d) {
+      // console.log("d.x = " + d.x);
       if (d.x == binIdx) {
         return "red";
       }
@@ -144,21 +183,17 @@ const InitialDrawing = function(vals, percentile) {
   return [svg, y];
 }
 
-var [parentSVG, parentY] = InitialDrawing(childValues);
-var [childSVG, childY] = InitialDrawing(childValues);
-
 const updateMillis = 500;
 const transitionMillis = updateMillis / 2;
 
-function update(svg, y, vals, percentile) {
-  const xMax = 120; // d3.max(vals);
+function update(svg, y, vals, percentile, xMax) {
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
 
   // Generate a histogram using uniformly-spaced bins.
   var data = d3.layout.histogram()
-      .bins(x.ticks(xMax))(vals);
+      .bins(kNumBins)(vals);
 
   // Reset y domain using new data
   var yMax = d3.max(data, function(d){return d.length});
@@ -179,8 +214,10 @@ function update(svg, y, vals, percentile) {
       return "translate(" + x(d.x) + "," + y(d.y) + ")";
     });
 
-  const getBinIndex = calculateBinPercentile(percentile);
-  const binIdx = getBinIndex(data);
+  // const getBinIndex = calculateBinPercentile(percentile);
+  const binIdx = calculatePercentileX(percentile)(data);
+  // console.log("binIdx = " + binIdx);
+
 
   bar.select("rect")
     .transition()
@@ -210,11 +247,14 @@ function update(svg, y, vals, percentile) {
 }
 
 
+// Calling refresh repeatedly.
+/*
+
 var intervalToken;
 
-// Calling refresh repeatedly.
 intervalToken = setInterval(function() {
   const batchSize = 500;
+  const maxParentRequests = 20000
   if (parentValues.length >= maxParentRequests) {
     console.log("done");
     clearInterval(intervalToken);
@@ -232,6 +272,53 @@ intervalToken = setInterval(function() {
   update(childSVG, childY, childValues, childPercentile);
   update(parentSVG, parentY, parentValues, parentPercentile);
 }, updateMillis);
+*/
+
+var parentSVG, childSVG;
+var parentY, childY;
+
+// Initialize state
+var initialize = function() {
+  var childValues = Array();
+  var parentValues = Array();
+  const fanoutSize = document.getElementById("fanout-size").value
+  const parentPercentile = document.getElementById("parent-percentile").value / 100.0
+  const numParentRequests = document.getElementById("num-requests").value
+  for (i = 0; i < numParentRequests; i++) {
+    const fanout = generateChildValues(fanoutSize);
+    childValues = childValues.concat(fanout);
+    parentValues.push(d3.max(fanout));
+  }
+  const xMax = Math.round(d3.max([d3.max(childValues),
+                                  d3.max(parentValues)]));
+  // console.log("xMax = " + xMax);
+  const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
+  [parentSVG, parentY] = InitialDrawing(parentValues, parentPercentile, d3.max(parentValues));
+  [childSVG, childY] = InitialDrawing(childValues, childPercentile, d3.max(childValues));
+
+  update(childSVG, childY, childValues, childPercentile, xMax);
+  update(parentSVG, parentY, parentValues, parentPercentile, xMax);
+};
+
+document.getElementById("refresh").onclick = function() {
+  var childValues = Array();
+  var parentValues = Array();
+  const fanoutSize = document.getElementById("fanout-size").value
+  const parentPercentile = document.getElementById("parent-percentile").value / 100.0
+  const numParentRequests = document.getElementById("num-requests").value
+  for (i = 0; i < numParentRequests; i++) {
+    const fanout = generateChildValues(fanoutSize);
+    childValues = childValues.concat(fanout);
+    parentValues.push(d3.max(fanout));
+  }
+  const xMax = Math.round(d3.max([d3.max(childValues),
+                                  d3.max(parentValues)]));
+  // console.log("xMax = " + xMax);
+  const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
+  update(childSVG, childY, childValues, childPercentile, xMax);
+  update(parentSVG, parentY, parentValues, parentPercentile, xMax);
+}
+
+initialize();
 
 </script>
-</body>
