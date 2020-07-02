@@ -75,9 +75,6 @@ var generateChildValues = function(n) {
   return d3.range(n).map(childDistributionFunc)
 }
 
-// TODO(paulcavallaro): There's a bug when there's only one request, it shows
-// nothing. Presumably it's an off by one error of assuming we can always
-// compare to another bucket.
 const margin = {top: 20, right: 30, bottom: 30, left: 30};
 const totalWidth = 960;
 const totalHeight = 500;
@@ -191,6 +188,12 @@ function update(svg, vals, xMax) {
     .attr("height", function(d) { return height - y(d.y); })
     .attr("fill", function(d) {
       return colorScale(d.y)
+    })
+    .attr("saved-fill", function(d) {
+      return colorScale(d.y)
+    })
+    .attr("class", function(d, i) {
+      return "rectbin idx" + i;
     });
   enter.append("text")
     .attr("dy", ".75em")
@@ -200,6 +203,9 @@ function update(svg, vals, xMax) {
     .attr("display", "none")
     .text(function(d, idx) {
       return "p" + percentileFormatter(percentiles[idx]);
+    })
+    .attr("class", function(d, i) {
+      return "textbin idx" + i;
     });
 
   // Do transformation/updates for existing elements
@@ -217,23 +223,26 @@ function update(svg, vals, xMax) {
     .attr("height", function(d) { return height - y(d.y); })
     .attr("fill", function(d) {
       return colorScale(d.y)
+    })
+    .attr("saved-fill", function(d) {
+      return colorScale(d.y)
     });
   bar.select("rect")
     .on('mouseover', function(d, i) {
-      d3.select(this)
+      d3.selectAll(".rectbin.idx" + i)
         .transition()
         .duration(50)
         .attr('fill', 'red');
-      d3.select(this.parentNode)
-        .select("text")
+      d3.selectAll(".textbin.idx" + i)
         .attr("display", "");
     }).on('mouseout', function(d, i) {
-      d3.select(this)
+      d3.selectAll(".rectbin.idx" + i)
         .transition()
         .duration(50)
-        .attr('fill', colorScale(d.y));
-      d3.select(this.parentNode)
-        .select("text")
+        .attr('fill', function(d) {
+          return d3.select(this).attr('saved-fill')
+        });
+      d3.selectAll(".textbin.idx" + i)
         .attr("display", "none");
     });
 
