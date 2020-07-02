@@ -48,7 +48,9 @@ body {
       <input id="refresh" class="refresh" type="button" value="Refresh"/>
     </span>
   </div>
-  <div class="d3">
+  <div class="d3 parent">
+  </div>
+  <div class="d3 child">
   </div>
 </body>
 
@@ -70,8 +72,8 @@ var generateChildValues = function(n) {
 }
 
 const margin = {top: 20, right: 30, bottom: 30, left: 30};
-const totalWidth = 800;
-const totalHeight = 250;
+const totalWidth = 700;
+const totalHeight = 300;
 const width = totalWidth - margin.left - margin.right;
 const height = totalHeight - margin.top - margin.bottom;
 
@@ -105,7 +107,7 @@ const calculateCumulativePercentiles = function(data) {
 }
 
 
-const InitialDrawing = function(xMax) {
+const InitialDrawing = function(selector, xMax) {
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
@@ -113,7 +115,7 @@ const InitialDrawing = function(xMax) {
       .scale(x)
       .orient("bottom");
 
-  var svg = d3.select("body div.d3").append("svg")
+  var svg = d3.select(selector).append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
     .append("g")
@@ -269,8 +271,8 @@ var initialize = function() {
   }
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
-  parentSVG = InitialDrawing(d3.max(parentValues));
-  childSVG = InitialDrawing(d3.max(childValues));
+  parentSVG = InitialDrawing("body div.d3.parent", d3.max(parentValues));
+  childSVG = InitialDrawing("body div.d3.child", d3.max(childValues));
 
   update(childSVG, childValues, xMax);
   update(parentSVG, parentValues, xMax);
