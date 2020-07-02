@@ -11,7 +11,7 @@ body {
 }
 
 .bar text {
-  fill: #000000;
+  fill: black;
   font-weight: bold;
   font-size: small;
 }
@@ -57,7 +57,16 @@ body {
 <script src="https://d3js.org/d3.v3.min.js"></script>
 <script>
 
-var color = "steelblue";
+// Add moveToFront functionality from
+// https://stackoverflow.com/questions/14167863/how-can-i-bring-a-circle-to-the-front-with-d3/
+// and which should be replaced with raise() in d3v4
+d3.selection.prototype.moveToFront = function() {
+  return this.each(function(){
+    this.parentNode.appendChild(this);
+  });
+};
+
+const color = "steelblue";
 
 // Generate N data points using log normal distribution with mean log of 3,
 // deviation 0.4
@@ -170,7 +179,9 @@ function update(svg, vals, xMax) {
   // Add new objects with data
   var enter = bar.enter()
       .append("g")
-      .attr("class", "bar");
+      .attr("class", function(d, i) {
+        return "bar idx" + i;
+      });
   enter.transition()
     .duration(transitionMillis)
     .attr("transform", function(d) {
@@ -226,15 +237,14 @@ function update(svg, vals, xMax) {
   bar.select("rect")
     .on('mouseover', function(d, i) {
       d3.selectAll(".rectbin.idx" + i)
-        .transition()
-        .duration(50)
         .attr('fill', 'red');
       d3.selectAll(".textbin.idx" + i)
         .attr("display", "");
+      // Also move to front the parent '.bar' node
+      d3.selectAll(".bar.idx" + i)
+        .moveToFront();
     }).on('mouseout', function(d, i) {
       d3.selectAll(".rectbin.idx" + i)
-        .transition()
-        .duration(50)
         .attr('fill', function(d) {
           return d3.select(this).attr('saved-fill')
         });
