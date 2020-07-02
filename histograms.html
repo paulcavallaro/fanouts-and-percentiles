@@ -221,6 +221,9 @@ function update(svg, vals, xMax) {
     .attr("transform", function(d) {
       return "translate(" + x(d.x) + "," + y(d.y) + ")";
     });
+  bar.attr("class", function(d, i) {
+    return "bar idx" + i;
+  });
   bar.select("rect")
     .transition()
     .duration(transitionMillis)
@@ -233,6 +236,9 @@ function update(svg, vals, xMax) {
     })
     .attr("saved-fill", function(d) {
       return colorScale(d.y)
+    })
+    .attr("class", function(d, i) {
+      return "rectbin idx" + i;
     });
   bar.select("rect")
     .on('mouseover', function(d, i) {
@@ -256,6 +262,9 @@ function update(svg, vals, xMax) {
     .attr("x", (x(data[0].dx) - x(0)) / 2)
     .text(function(d, idx) {
       return "p" + percentileFormatter(percentiles[idx]);
+    })
+    .attr("class", function(d, i) {
+      return "textbin idx" + i;
     });
 
   // Finally re-draw/scale the x-axis
