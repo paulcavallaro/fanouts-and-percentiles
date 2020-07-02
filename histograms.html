@@ -90,11 +90,29 @@ d3.selection.prototype.moveToFront = function() {
 
 const color = "steelblue";
 
+// Override these getter functions to hardcoded values if you want to embed this
+// in another web page without the settings.
+function getChildDistributionMu() {
+  return Number(document.getElementById("child-dist-mu").value);
+}
+function getChildDistributionSigma() {
+  return Number(document.getElementById("child-dist-sigma").value);
+}
+function getNumRequests() {
+  return Number(document.getElementById("num-requests").value);
+}
+function getNumBins() {
+  return Number(document.getElementById("num-bins").value);
+}
+function getFanoutSize() {
+  return Number(document.getElementById("fanout-size").value);
+}
+
 // Generate N data points using log normal distribution with mean log of 3,
 // deviation 0.4
 var generateChildValues = function(n) {
-  const mu = Number(document.getElementById("child-dist-mu").value)
-  const sigma = Number(document.getElementById("child-dist-sigma").value)
+  const mu = getChildDistributionMu();
+  const sigma = getChildDistributionSigma();
   var logNormal = d3.random.logNormal(mu, sigma);
   var childDistributionFunc = function(x) {
     return logNormal(x);
@@ -133,7 +151,8 @@ const InitialDrawing = function(selector, xMax) {
   var svg = d3.select(selector).append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
-    .append("g")
+      .append("g")
+      .attr("class", "inner")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
   svg.append("g")
@@ -148,7 +167,7 @@ const transitionMillis = 250;
 
 function update(svg, vals, xMax) {
   // Get num bins
-  const numBins = Number(document.getElementById("num-bins").value)
+  const numBins = getNumBins();
   // Generate a histogram using uniformly-spaced bins from [0, xMax].
   var ticks = Array();
   const step = xMax / numBins;
@@ -278,15 +297,12 @@ function update(svg, vals, xMax) {
   svg.selectAll("g.x.axis").call(xAxis);
 }
 
-
-var parentSVG, childSVG;
-
 // Initialize state
 var initialize = function() {
   var childValues = Array();
   var parentValues = Array();
-  const fanoutSize = document.getElementById("fanout-size").value
-  const numParentRequests = document.getElementById("num-requests").value
+  const fanoutSize = getFanoutSize();
+  const numParentRequests = getNumRequests();
   for (i = 0; i < numParentRequests; i++) {
     const fanout = generateChildValues(fanoutSize);
     childValues = childValues.concat(fanout);
@@ -297,15 +313,15 @@ var initialize = function() {
   parentSVG = InitialDrawing("body div.d3.parent", d3.max(parentValues));
   childSVG = InitialDrawing("body div.d3.child", d3.max(childValues));
 
-  update(childSVG, childValues, xMax);
-  update(parentSVG, parentValues, xMax);
+  update(d3.select("body div.d3.child svg g.inner"), childValues, xMax);
+  update(d3.select("body div.d3.parent svg g.inner"), parentValues, xMax);
 };
 
 document.getElementById("refresh").onclick = function() {
   var childValues = Array();
   var parentValues = Array();
-  const fanoutSize = document.getElementById("fanout-size").value
-  const numParentRequests = document.getElementById("num-requests").value
+  const fanoutSize = getFanoutSize();
+  const numParentRequests = getNumRequests();
   for (i = 0; i < numParentRequests; i++) {
     const fanout = generateChildValues(fanoutSize);
     childValues = childValues.concat(fanout);
@@ -313,8 +329,8 @@ document.getElementById("refresh").onclick = function() {
   }
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
-  update(childSVG, childValues, xMax);
-  update(parentSVG, parentValues, xMax);
+  update(d3.select("body div.d3.child svg g.inner"), childValues, xMax);
+  update(d3.select("body div.d3.parent svg g.inner"), parentValues, xMax);
 }
 
 initialize();
