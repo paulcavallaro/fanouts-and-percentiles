@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <style>
 
-body {
+body .options {
   font: 10px sans-serif;
 }
 
@@ -25,6 +25,15 @@ body {
 </style>
 
 <body>
+  <div class="explanation">
+    <p>
+      This visualization playground is a companion to <a href="https://paulcavallaro.com/blog/fanouts-and-percentiles/">this blog post</a>. It is a visualization of two latency distributions, a Parent latency distribution and a Child latency distribution. The Parent latency distribution is derived as being the max of N observations sampled from the Child latency distribution, where N is defined by the "Fanout Size".
+    </p>
+    <p>
+      There are knobs to allow varying properties of the distribution, like fanout size, as well as properties of the visualization, like number of bins in the histogram. You can also interact with the visualization by hovering over individual bars of the histogram to view how they relate between the two distributions.
+    </p>
+  </div>
+  <div class="options">
   <div>
     <span>
       Fanout Size:
@@ -45,8 +54,21 @@ body {
   </div>
   <div>
     <span>
+      Child <a href="https://en.wikipedia.org/wiki/Log-normal_distribution#Generation_and_parameters">Log Normal Distribution Mu</a>
+      <input id="child-dist-mu" class="child-dist-mu" type="text" value="3.4"/>
+    </span>
+  </div>
+  <div>
+    <span>
+      Child <a href="https://en.wikipedia.org/wiki/Log-normal_distribution#Generation_and_parameters">Log Normal Distribution Sigma</a>
+      <input id="child-dist-sigma" class="child-dist-sigma" type="text" value="0.55"/>
+    </span>
+  </div>
+  <div>
+    <span>
       <input id="refresh" class="refresh" type="button" value="Refresh"/>
     </span>
+  </div>
   </div>
   <div class="d3 parent">
   </div>
@@ -71,11 +93,11 @@ const color = "steelblue";
 // Generate N data points using log normal distribution with mean log of 3,
 // deviation 0.4
 var generateChildValues = function(n) {
-  var logNormal = d3.random.logNormal(3.4, 0.55);
-  var normal = d3.random.normal(85, 2);
+  const mu = Number(document.getElementById("child-dist-mu").value)
+  const sigma = Number(document.getElementById("child-dist-sigma").value)
+  var logNormal = d3.random.logNormal(mu, sigma);
   var childDistributionFunc = function(x) {
     return logNormal(x);
-    // return normal(x);
   }
   return d3.range(n).map(childDistributionFunc)
 }
@@ -139,8 +161,6 @@ const InitialDrawing = function(selector, xMax) {
 }
 
 const transitionMillis = 250;
-
-var highlightX = -1;
 
 function update(svg, vals, xMax) {
   // Get num bins
