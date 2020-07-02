@@ -33,12 +33,6 @@ body {
   </div>
   <div>
     <span>
-      Parent Latency Percentile:
-      <input id="parent-percentile" class="parent-percentile" type="text" value="95" />
-    </span>
-  </div>
-  <div>
-    <span>
       Num Requests To Simulate:
       <input id="num-requests" class="num-requests" type="text" value="3000" />
     </span>
@@ -76,8 +70,8 @@ var generateChildValues = function(n) {
 }
 
 const margin = {top: 20, right: 30, bottom: 30, left: 30};
-const totalWidth = 960;
-const totalHeight = 500;
+const totalWidth = 800;
+const totalHeight = 250;
 const width = totalWidth - margin.left - margin.right;
 const height = totalHeight - margin.top - margin.bottom;
 
@@ -267,7 +261,6 @@ var initialize = function() {
   var childValues = Array();
   var parentValues = Array();
   const fanoutSize = document.getElementById("fanout-size").value
-  const parentPercentile = document.getElementById("parent-percentile").value / 100.0
   const numParentRequests = document.getElementById("num-requests").value
   for (i = 0; i < numParentRequests; i++) {
     const fanout = generateChildValues(fanoutSize);
@@ -276,7 +269,6 @@ var initialize = function() {
   }
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
-  const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
   parentSVG = InitialDrawing(d3.max(parentValues));
   childSVG = InitialDrawing(d3.max(childValues));
 
@@ -288,7 +280,6 @@ document.getElementById("refresh").onclick = function() {
   var childValues = Array();
   var parentValues = Array();
   const fanoutSize = document.getElementById("fanout-size").value
-  const parentPercentile = document.getElementById("parent-percentile").value / 100.0
   const numParentRequests = document.getElementById("num-requests").value
   for (i = 0; i < numParentRequests; i++) {
     const fanout = generateChildValues(fanoutSize);
@@ -297,7 +288,6 @@ document.getElementById("refresh").onclick = function() {
   }
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
-  const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
   update(childSVG, childValues, xMax);
   update(parentSVG, parentValues, xMax);
 }
