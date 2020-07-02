@@ -110,21 +110,6 @@ const height = totalHeight - margin.top - margin.bottom;
 
 const percentileFormatter = d3.format(".2f");
 
-const calculatePercentileX = function(p) {
-  return function(data) {
-    const sum = data.reduce(function(acc, val) {
-      return acc + val.y;
-    }, 0);
-    const goal = p * sum;
-    var cur = 0;
-    for (i = 0; i < data.length; i++) {
-      cur += data[i].y;
-      if (cur >= goal) return data[i].x;
-    }
-    return data[data.length-1].x;
-  }
-}
-
 const calculateCumulativePercentiles = function(data) {
   const sum = data.reduce(function(acc, val) {
     return acc + val.y;
@@ -136,7 +121,6 @@ const calculateCumulativePercentiles = function(data) {
   });
   return cumulative;
 }
-
 
 const InitialDrawing = function(selector, xMax) {
   var x = d3.scale.linear()
