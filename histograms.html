@@ -28,7 +28,7 @@ body {
   <div>
     <span>
       Fanout Size:
-      <input id="fanout-size" class="fanout-size" type="text" value="20" />
+      <input id="fanout-size" class="fanout-size" type="text" value="15" />
     </span>
   </div>
   <div>
@@ -40,13 +40,13 @@ body {
   <div>
     <span>
       Num Requests To Simulate:
-      <input id="num-requests" class="num-requests" type="text" value="4000" />
+      <input id="num-requests" class="num-requests" type="text" value="3000" />
     </span>
   </div>
   <div>
     <span>
       Num Bins:
-      <input id="num-bins" class="num-bins" type="text" value="125" />
+      <input id="num-bins" class="num-bins" type="text" value="100" />
     </span>
   </div>
   <div>
@@ -75,6 +75,9 @@ var generateChildValues = function(n) {
   return d3.range(n).map(childDistributionFunc)
 }
 
+// TODO(paulcavallaro): There's a bug when there's only one request, it shows
+// nothing. Presumably it's an off by one error of assuming we can always
+// compare to another bucket.
 const margin = {top: 20, right: 30, bottom: 30, left: 30};
 const totalWidth = 960;
 const totalHeight = 500;
@@ -111,31 +114,10 @@ const calculateCumulativePercentiles = function(data) {
 }
 
 
-const InitialDrawing = function(vals, percentile, xMax) {
-  var color = "steelblue";
-
+const InitialDrawing = function(xMax) {
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
-
-  // Get num bins
-  const numBins = Number(document.getElementById("num-bins").value)
-  // Generate a histogram using uniformly-spaced bins.
-  var data = d3.layout.histogram()
-      .bins(numBins)(vals);
-
-  const percentiles = calculateCumulativePercentiles(data);
-
-  var yMax = d3.max(data, function(d){ return d.y });
-  var yMin = d3.min(data, function(d){ return d.y });
-  var colorScale = d3.scale.linear()
-      .domain([yMin, yMax])
-      .range([d3.rgb(color).brighter(), d3.rgb(color).darker()]);
-
-  var y = d3.scale.linear()
-      .domain([0, yMax])
-      .range([height, 0]);
-
   var xAxis = d3.svg.axis()
       .scale(x)
       .orient("bottom");
@@ -146,59 +128,42 @@ const InitialDrawing = function(vals, percentile, xMax) {
     .append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-  var bar = svg.selectAll(".bar")
-      .data(data)
-    .enter().append("g")
-      .attr("class", "bar")
-      .attr("transform", function(d) {
-        return "translate(" + x(d.x) + "," + y(d.y) + ")";
-      });
-
-  bar.append("rect")
-    .attr("x", 1)
-    .attr("width", (x(data[0].dx) - x(0)) - 1)
-    .attr("height", function(d) { return height - y(d.y); })
-    .attr("fill", function(d) {
-      return colorScale(d.y)
-    });
-
-  bar.append("text")
-    .attr("dy", ".75em")
-    .attr("y", -12)
-    .attr("x", (x(data[0].dx) - x(0)) / 2)
-    .attr("text-anchor", "middle")
-    .attr("display", "none")
-    .text(function(d, idx) {
-      return "p" + percentileFormatter(percentiles[idx]);
-    });
-
   svg.append("g")
     .attr("class", "x axis")
     .attr("transform", "translate(0," + height + ")")
     .call(xAxis);
 
-  return [svg, y];
+  return svg;
 }
 
 const transitionMillis = 250;
 
 var highlightX = -1;
 
-function update(svg, y, vals, percentile, xMax) {
+function update(svg, vals, xMax) {
+  // Get num bins
+  const numBins = Number(document.getElementById("num-bins").value)
+  // Generate a histogram using uniformly-spaced bins from [0, xMax].
+  var ticks = Array();
+  const step = xMax / numBins;
+  // Add 0.01 because floating point and we want NumTicks == NumBuckets + 1
+  for (var t = 0; t <= xMax + 0.01; t += step) {
+    ticks.push(t);
+  }
+  var data = d3.layout.histogram()
+      .bins(ticks)(vals);
+
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
-
-  // Get num bins
-  const numBins = Number(document.getElementById("num-bins").value)
-  // Generate a histogram using uniformly-spaced bins.
-  var data = d3.layout.histogram()
-      .bins(numBins)(vals);
+  const rectWidth = x(step) - 1;
 
   // Reset y domain using new data
   var yMax = d3.max(data, function(d){return d.length});
   var yMin = d3.min(data, function(d){return d.length});
-  y.domain([0, yMax]);
+  var y = d3.scale.linear()
+      .domain([0, yMax])
+      .range([height, 0]);
   var colorScale = d3.scale.linear()
       .domain([yMin, yMax])
       .range([d3.rgb(color).brighter(), d3.rgb(color).darker()]);
@@ -220,7 +185,9 @@ function update(svg, y, vals, percentile, xMax) {
     });
   enter.append("rect")
     .attr("x", 1)
-    .attr("width", (x(data[0].dx) - x(0)) - 1)
+    .attr("width", function(d) {
+      return rectWidth;
+    })
     .attr("height", function(d) { return height - y(d.y); })
     .attr("fill", function(d) {
       return colorScale(d.y)
@@ -244,7 +211,9 @@ function update(svg, y, vals, percentile, xMax) {
   bar.select("rect")
     .transition()
     .duration(transitionMillis)
-    .attr("width", (x(data[0].dx) - x(0)) - 1)
+    .attr("width", function(d) {
+      return rectWidth;
+    })
     .attr("height", function(d) { return height - y(d.y); })
     .attr("fill", function(d) {
       return colorScale(d.y)
@@ -283,7 +252,6 @@ function update(svg, y, vals, percentile, xMax) {
 
 
 var parentSVG, childSVG;
-var parentY, childY;
 
 // Initialize state
 var initialize = function() {
@@ -300,11 +268,11 @@ var initialize = function() {
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
   const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
-  [parentSVG, parentY] = InitialDrawing(parentValues, parentPercentile, d3.max(parentValues));
-  [childSVG, childY] = InitialDrawing(childValues, childPercentile, d3.max(childValues));
+  parentSVG = InitialDrawing(d3.max(parentValues));
+  childSVG = InitialDrawing(d3.max(childValues));
 
-  update(childSVG, childY, childValues, childPercentile, xMax);
-  update(parentSVG, parentY, parentValues, parentPercentile, xMax);
+  update(childSVG, childValues, xMax);
+  update(parentSVG, parentValues, xMax);
 };
 
 document.getElementById("refresh").onclick = function() {
@@ -321,8 +289,8 @@ document.getElementById("refresh").onclick = function() {
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
   const childPercentile = Math.pow(parentPercentile, 1/fanoutSize);
-  update(childSVG, childY, childValues, childPercentile, xMax);
-  update(parentSVG, parentY, parentValues, parentPercentile, xMax);
+  update(childSVG, childValues, xMax);
+  update(parentSVG, parentValues, xMax);
 }
 
 initialize();
