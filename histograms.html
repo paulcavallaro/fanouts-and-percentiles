@@ -6,6 +6,16 @@ body .options {
   font: 10px sans-serif;
 }
 
+.graphtitle {
+    font: medium sans-serif;
+    font-weight: bold;
+}
+
+.x.axislabel {
+    font: small sans-serif;
+    font-weight: bold;
+}
+
 .bar rect {
   shape-rendering: crispEdges;
 }
@@ -95,6 +105,14 @@ const color = "steelblue";
 
 // Override these getter functions to hardcoded values if you want to embed this
 // in another web page without the settings.
+// The bare minimum html you will need is:
+//
+// <body>
+// <div class="d3 parent"></div>
+// <div class="d3 child"></div>
+// <body>
+//
+// And that's it.
 function getChildDistributionMu() {
   return Number(document.getElementById("child-dist-mu").value);
 }
@@ -123,9 +141,9 @@ var generateChildValues = function(n) {
   return d3.range(n).map(childDistributionFunc)
 }
 
-const margin = {top: 20, right: 30, bottom: 30, left: 30};
+const margin = {top: 40, right: 30, bottom: 50, left: 30};
 const totalWidth = 700;
-const totalHeight = 300;
+const totalHeight = 330;
 const width = totalWidth - margin.left - margin.right;
 const height = totalHeight - margin.top - margin.bottom;
 
@@ -143,7 +161,7 @@ const calculateCumulativePercentiles = function(data) {
   return cumulative;
 }
 
-const InitialDrawing = function(selector, xMax) {
+const InitialDrawing = function(selector, title, xMax) {
   var x = d3.scale.linear()
       .domain([0, xMax])
       .range([0, width]);
@@ -153,15 +171,28 @@ const InitialDrawing = function(selector, xMax) {
 
   var svg = d3.select(selector).append("svg")
       .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
+      .attr("height", height + margin.top + margin.bottom);
+
+  var inner = svg.append("g")
       .attr("class", "inner")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-  svg.append("g")
+  inner.append("g")
     .attr("class", "x axis")
     .attr("transform", "translate(0," + height + ")")
     .call(xAxis);
+
+  inner.append("text")
+    .attr("class", "x axislabel")
+    .attr("transform", "translate(" + (width / 2) + "," + (height + margin.bottom - 10) + ")")
+    .style("text-anchor", "middle")
+    .text("Latency (ms)");
+
+  svg.append("text")
+    .attr("class", "graphtitle")
+    .attr("transform", "translate(" + (width / 2) + "," + 30 + ")")
+    .style("text-anchor", "middle")
+    .text(title);
 
   return svg;
 }
@@ -313,13 +344,16 @@ var initialize = function() {
   }
   const xMax = Math.round(d3.max([d3.max(childValues),
                                   d3.max(parentValues)]));
-  parentSVG = InitialDrawing("body div.d3.parent", d3.max(parentValues));
-  childSVG = InitialDrawing("body div.d3.child", d3.max(childValues));
+  parentSVG = InitialDrawing("body div.d3.parent", "Parent Latency Distribution",
+                             d3.max(parentValues));
+  childSVG = InitialDrawing("body div.d3.child", "Child Latency Distribution",
+                            d3.max(childValues));
 
   update(d3.select("body div.d3.child svg g.inner"), childValues, xMax);
   update(d3.select("body div.d3.parent svg g.inner"), parentValues, xMax);
 };
 
+// Remove this if you wish to embed into another page
 document.getElementById("refresh").onclick = function() {
   var childValues = Array();
   var parentValues = Array();
